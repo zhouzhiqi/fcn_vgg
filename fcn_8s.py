@@ -17,8 +17,6 @@ from utils import (bilinear_upsample_weights, grayscale_to_voc_impl)
 
 import logging
 
-os.environ["CUDA_VISIBLE_DEVICES"]=""
-
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s', level=logging.DEBUG)
 

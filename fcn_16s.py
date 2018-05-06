@@ -29,6 +29,7 @@ def parse_args(check=True):
     parser.add_argument('--batch_size', type=int, default=16)
     parser.add_argument('--max_steps', type=int, default=1500)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--clone_on_cpu', type=bool, default=False)
 
     FLAGS, unparsed = parser.parse_known_args()
     return FLAGS, unparsed
@@ -37,7 +38,7 @@ def parse_args(check=True):
 FLAGS, unparsed = parse_args()
 
 slim = tf.contrib.slim
-
+if FLAGS.clone_on_cpu: os.environ["CUDA_VISIBLE_DEVICES"]=""
 
 tf.reset_default_graph()
 is_training_placeholder = tf.placeholder(tf.bool)
