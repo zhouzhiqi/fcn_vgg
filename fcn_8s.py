@@ -57,7 +57,7 @@ image_tensor, orig_img_tensor, annotation_tensor = tf.cond(is_training_placehold
 
 feed_dict_to_use = {is_training_placeholder: True}
 
-upsample_factor = 16  #上采样
+upsample_factor = 8  #上采样
 number_of_classes = 21 #分类数
 
 log_folder = os.path.join(FLAGS.output_dir, 'train')
@@ -112,15 +112,39 @@ upsampled_logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor_x2,
                                           padding='SAME')
 
 #32*32*21 + 32*32*21 = 32*32*21
-upsampled_logits = upsampled_logits + aux_logits_16s
+upsampled_logits_x2 = upsampled_logits + aux_logits_16s
+
+
+
+pool3_feature = end_points['vgg_16/pool3']  #64*64*256
+
+with tf.variable_scope('vgg_16/fc8'):  #分类器64*64*256=>64*64*21
+    aux_logits_8s = slim.conv2d(pool3_feature, number_of_classes, [1, 1],
+                                 activation_fn=None,
+                                 weights_initializer=tf.zeros_initializer,
+                                 scope='conv_pool3')
 
 # Perform the upsampling 
-upsample_filter_np_x16 = bilinear_upsample_weights(upsample_factor,
+upsample_filter_np_x2_x2 = bilinear_upsample_weights(2,  # upsample_factor,
+                                                  number_of_classes)
+
+upsample_filter_tensor_x2_x2 = tf.Variable(upsample_filter_np_x2_x2, name='vgg_16/fc8/t_conv_x2_x2')
+# 对加和结果进行2倍反卷积,与['vgg_16/pool3']等大
+upsampled_logits_x2 = tf.nn.conv2d_transpose(upsampled_logits_x2, upsample_filter_tensor_x2_x2,
+                                          output_shape=tf.shape(aux_logits_8s),
+                                          strides=[1, 2, 2, 1],
+                                          padding='SAME')
+#32*32*21 + 32*32*21 = 32*32*21
+upsampled_logits = upsampled_logits_x2 + aux_logits_8s
+
+
+# Perform the upsampling 
+upsample_filter_np_x8 = bilinear_upsample_weights(upsample_factor,
                                                    number_of_classes)
 
-upsample_filter_tensor_x16 = tf.Variable(upsample_filter_np_x16, name='vgg_16/fc8/t_conv_x16')
-# 对加和后的结果16倍反卷积32*32*21=>512*512*21
-upsampled_logits = tf.nn.conv2d_transpose(upsampled_logits, upsample_filter_tensor_x16,
+upsample_filter_tensor_x8 = tf.Variable(upsample_filter_np_x8, name='vgg_16/fc8/t_conv_x16')
+# 对加和后的结果16倍反卷积64*64*21=>512*512*21
+upsampled_logits = tf.nn.conv2d_transpose(upsampled_logits, upsample_filter_tensor_x8,
                                           output_shape=upsampled_logits_shape,
                                           strides=[1, upsample_factor, upsample_factor, 1],
                                           padding='SAME')
@@ -293,9 +317,6 @@ with sess:
     # start data reader
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
-    for x in end_points:
-        print(x,'---',tf.shape(end_points[x]))
-    sys.exit()
 
     start = time.time()
     for i in range(FLAGS.max_steps):
