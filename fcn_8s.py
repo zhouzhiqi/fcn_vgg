@@ -94,7 +94,7 @@ upsampled_logits_shape = tf.stack([
 
 pool4_feature = end_points['vgg_16/pool4']  #32*32*512
 
-with tf.variable_scope('vgg_16/fc8'):  #分类器32*32*512=>32*32*21
+with tf.variable_scope('vgg_16/fc8_x2'):  #分类器32*32*512=>32*32*21
     aux_logits_16s = slim.conv2d(pool4_feature, number_of_classes, [1, 1],
                                  activation_fn=None,
                                  weights_initializer=tf.zeros_initializer,
@@ -106,44 +106,43 @@ upsample_filter_np_x2 = bilinear_upsample_weights(2,  # upsample_factor,
 
 upsample_filter_tensor_x2 = tf.Variable(upsample_filter_np_x2, name='vgg_16/fc8/t_conv_x2')
 # 对['vgg_16/fc8']进行2倍反卷积,与['vgg_16/pool4']等大
-upsampled_logits = tf.nn.conv2d_transpose(logits, upsample_filter_tensor_x2,
+upsampled_logits_x2 = tf.nn.conv2d_transpose(logits, upsample_filter_tensor_x2,
                                           output_shape=tf.shape(aux_logits_16s),
                                           strides=[1, 2, 2, 1],
                                           padding='SAME')
 
 #32*32*21 + 32*32*21 = 32*32*21
-upsampled_logits_x2 = upsampled_logits + aux_logits_16s
-
-
+upsampled_logits_x2 = upsampled_logits_x2 + aux_logits_16s
 
 pool3_feature = end_points['vgg_16/pool3']  #64*64*256
 
-with tf.variable_scope('vgg_16/fc8'):  #分类器64*64*256=>64*64*21
+with tf.variable_scope('vgg_16/fc8_x2x2'):  #分类器64*64*256=>64*64*21
     aux_logits_8s = slim.conv2d(pool3_feature, number_of_classes, [1, 1],
                                  activation_fn=None,
                                  weights_initializer=tf.zeros_initializer,
                                  scope='conv_pool3')
 
 # Perform the upsampling 
-upsample_filter_np_x2_x2 = bilinear_upsample_weights(2,  # upsample_factor,
+upsample_filter_np_x2x2 = bilinear_upsample_weights(2,  # upsample_factor,
                                                   number_of_classes)
 
-upsample_filter_tensor_x2_x2 = tf.Variable(upsample_filter_np_x2_x2, name='vgg_16/fc8/t_conv_x2_x2')
+upsample_filter_tensor_x2x2 = tf.Variable(upsample_filter_np_x2x2, name='vgg_16/fc8/t_conv_x2x2')
 # 对加和结果进行2倍反卷积,与['vgg_16/pool3']等大
-upsampled_logits_x2 = tf.nn.conv2d_transpose(upsampled_logits_x2, upsample_filter_tensor_x2_x2,
+upsampled_logits_x2x2 = tf.nn.conv2d_transpose(upsampled_logits_x2, upsample_filter_tensor_x2x2,
                                           output_shape=tf.shape(aux_logits_8s),
                                           strides=[1, 2, 2, 1],
                                           padding='SAME')
+
 #32*32*21 + 32*32*21 = 32*32*21
-upsampled_logits = upsampled_logits_x2 + aux_logits_8s
+upsampled_logits = upsampled_logits_x2x2 + aux_logits_8s
 
 
 # Perform the upsampling 
 upsample_filter_np_x8 = bilinear_upsample_weights(upsample_factor,
                                                    number_of_classes)
 
-upsample_filter_tensor_x8 = tf.Variable(upsample_filter_np_x8, name='vgg_16/fc8/t_conv_x16')
-# 对加和后的结果16倍反卷积64*64*21=>512*512*21
+upsample_filter_tensor_x8 = tf.Variable(upsample_filter_np_x8, name='vgg_16/fc8/t_conv_x8')
+# 对加和后的结果8倍反卷积64*64*21=>512*512*21
 upsampled_logits = tf.nn.conv2d_transpose(upsampled_logits, upsample_filter_tensor_x8,
                                           output_shape=upsampled_logits_shape,
                                           strides=[1, upsample_factor, upsample_factor, 1],
